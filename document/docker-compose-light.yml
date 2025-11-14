@@ -1,12 +1,18 @@
 # version: '3.2'
 
 networks:
-  binghe-network:
+  # 定义一个名为im-network的桥接网络
+  im-network:
     driver: bridge
 
+# 定义一个名为prometheus_data的数据卷
 volumes:
   prometheus_data: {}
 services:
+  # mysql数据库服务
+  # 设置字符集、时区等参数
+  # 配置环境变量
+  # 配置端口映射
   mysql:
     image: mysql:5.7
     container_name: mysql
@@ -20,13 +26,13 @@ services:
     ]
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: bh_im
-      MYSQL_USER: binghe
-      MYSQL_PASSWORD: binghe
+      MYSQL_DATABASE: im
+      MYSQL_USER: im_root
+      MYSQL_PASSWORD: im_root
     ports:
     - 3306:3306
     networks:
-    - binghe-network
+    - im-network
 
   redis:
     container_name: redis
@@ -34,7 +40,8 @@ services:
     ports:
     - 6379:6379
     networks:
-    - binghe-network
+    - im-network
+  # redis管理工具
   redis-commander:
     container_name: redis-commander
     hostname: redis-commander
@@ -44,7 +51,7 @@ services:
     ports:
     - 8082:8081
     networks:
-    - binghe-network
+    - im-network
   rmqnamesrv:
     image: apacherocketmq/rocketmq:4.5.0
     container_name: rmqnamesrv
@@ -55,7 +62,8 @@ services:
     - ./data/rocketmq/store:/home/rocketmq/store
     command: sh mqnamesrv
     networks:
-    - binghe-network
+    - im-network
+  # rocketmq的代理
   rmqbroker:
     image: apacherocketmq/rocketmq:4.5.0
     container_name: rmqbroker
@@ -73,8 +81,8 @@ services:
     environment:
     - JAVA_HOME=/usr/lib/jvm/jre
     networks:
-    - binghe-network
-
+    - im-network
+  # 单节点模式的elasticsearch
   elasticsearch:
     image: elasticsearch:7.14.2
     container_name: elasticsearch
@@ -87,8 +95,8 @@ services:
       ES_JAVA_OPTS: "-Xmx256m -Xms256m"
       discovery.type: single-node
     networks:
-    - binghe-network
-
+    - im-network
+  # 日志收集、处理工具
   logstash:
     image: logstash:7.14.2
     container_name: logstash
@@ -103,10 +111,10 @@ services:
     environment:
       LS_JAVA_OPTS: "-Xmx256m -Xms256m"
     networks:
-    - binghe-network
+    - im-network
     depends_on:
     - elasticsearch
-
+  # es的可视化界面
   kibana:
     image: kibana:7.14.2
     container_name: kibana
@@ -115,18 +123,19 @@ services:
     ports:
     - "5601:5601"
     networks:
-    - binghe-network
+    - im-network
     depends_on:
     - elasticsearch
-
+  # 流量控制与熔断组件
   sentinel:
     image: bladex/sentinel-dashboard
     container_name: sentinel
     ports:
       - 8858:8858
     networks:
-      - binghe-network
-
+      - im-network
+  # 服务发现与配置管理中心
+  # 使用mysql作为数据存储
   nacos:
     image: nacos/nacos-server:2.0.3
     container_name: nacos-standalone-mysql
@@ -143,6 +152,6 @@ services:
     - mysql
     restart: on-failure
     networks:
-    - binghe-network
+    - im-network
 
 
