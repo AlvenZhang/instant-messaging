@@ -11,6 +11,7 @@
     <groupId>com.message</groupId>
     <artifactId>instant-messaging</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>instant-messaging</name>
     <description>instant-messaging</description>
     <url/>
@@ -20,6 +21,13 @@
     <developers>
         <developer/>
     </developers>
+    <modules>
+        <module>domain</module>
+        <module>infrastructure</module>
+        <module>application</module>
+        <module>interfaces</module>
+        <module>starter</module>
+    </modules>
     <scm>
         <connection/>
         <developerConnection/>
@@ -42,13 +50,13 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
+<!--    <build>-->
+<!--        <plugins>-->
+<!--            <plugin>-->
+<!--                <groupId>org.springframework.boot</groupId>-->
+<!--                <artifactId>spring-boot-maven-plugin</artifactId>-->
+<!--            </plugin>-->
+<!--        </plugins>-->
+<!--    </build>-->
 
 </project>
