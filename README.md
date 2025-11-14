@@ -91,6 +91,13 @@ docker pull kibana:7.14.2
 docker pull bladex/sentinel-dashboard
 docker pull nacos/nacos-server:2.0.3
 ```
+
+搭建maven私服
+```bash
+docker run -d -p 8081:8081 --name nexus -v /usr/local/nexus-data:/nexus-data --restart=always sonatype/nexus3
+```
+
+
 ## 2. 项目工程搭建
 1. 创建根项目
 2. 创建子模块：domain、infrastructure、application、interfaces、stater
