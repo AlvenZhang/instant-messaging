@@ -24,3 +24,8 @@
 2. 后端平台将消息缓存起来，并存储到数据库
 3. 后端平台从Redis中获取到B的即时通讯系统ID，向对应用户B的即时通讯系统的Topic发送消息
 4. 即时通讯系统监听消息，根据用户B的ID以及终端信息获取到对应链接，向用户B推送消息
+
+
+# part 3: 准备环境
+## 1. 安装系统环境
+包含docker、docker-compose。使用docker-compose一件安装即时通讯系统依赖的基础服务和中间件：MySQL、Redis、RocketMQ、ElasticSearch、Logstash、Kibana、Nacos、Sentinel等
