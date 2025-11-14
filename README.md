@@ -24,3 +24,21 @@
 2. 后端平台将消息缓存起来，并存储到数据库
 3. 后端平台从Redis中获取到B的即时通讯系统ID，向对应用户B的即时通讯系统的Topic发送消息
 4. 即时通讯系统监听消息，根据用户B的ID以及终端信息获取到对应链接，向用户B推送消息
+
+
+# part 3: 准备环境
+## 1. 安装系统环境
+包含docker、docker-compose。使用docker-compose一件安装即时通讯系统依赖的基础服务和中间件：MySQL、Redis、RocketMQ、ElasticSearch、Logstash、Kibana、Nacos、Sentinel等
+1. 安装docker、设置开机自启动、配置镜像加速，安装docker-compose
+2. 使用docker-compose一件安装基础服务
+3. 测试安装的服务：MySQL、Redis、RocketMQ、ElasticSearch、Logstash、Kibana、Nacos、Sentinel等
+
+## 2. 项目工程搭建
+1. 创建根项目
+2. 创建子模块：domain、infrastructure、application、interfaces、stater
+   a. domain：领域层，即时通讯后端服务中相对不变的部分抽象出来的领域对象
+   b. infrastructure：基础设施层，包含数据库、缓存、消息队列、分布式锁、分布式事务等
+   c. application：应用层，处理容易变化的业务场景，对相关事件、调度和其他聚合操作进行相关处理
+   d. interfaces：接口层、展示层，DDD设计的最上层，对外提供API接口，接受客户端请求，解析参数，返回结果数据，对异常进行处理
+   e. stater：启动类，项目的启动工程
+3. 依赖关系：starter -> interfaces -> application -> infrastructure -> domain
