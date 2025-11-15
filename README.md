@@ -97,6 +97,11 @@ docker pull nacos/nacos-server:2.0.3
 docker run -d -p 8081:8081 --name nexus -v /usr/local/nexus-data:/nexus-data --restart=always sonatype/nexus3
 ```
 
+搭建minio分布式文件系统
+1. 使用docker-compose安装四个minio服务器
+2. 编写nginx配置，使用nginx进行负载均衡访问
+3. 配置minio，创建bucket
+
 
 ## 2. 项目工程搭建
 1. 创建根项目
