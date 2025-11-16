@@ -1,33 +1,27 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# 忽略生成的文件
+*.class
+*.jar
+*.o
+*.pyc
+*.dll
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# 忽略敏感信息
+*.key
+*.pem
+*.env
+*.config
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
+# 忽略用户特定文件
+*.log
+*.swp
+*.DS_Store
+Thumbs.db
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# 忽略构建产物和输出
+/bin
+/build
+/dist
+/target
 
-### VS Code ###
-.vscode/
+# 忽略第三方库和依
+
