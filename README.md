@@ -190,6 +190,10 @@ docker run -d -p 8081:8081 --name nexus -v /usr/local/nexus-data:/nexus-data --r
 1. 向缓存中添加数据
 2. 根据key从缓存中获取数据
 3. 移除缓存中的数据
+#### 本地缓存接口基于Guava实现
+1. 定义一个工厂类，实现不同参数创建Guava实例的多个方法
+2. 一个使用Guava的本地缓存类，实现接口的方法。并且使用@ConditionalOnProperty注解，根据配置决定是否加载该类
+
 #### 分布式缓存
 一个分布式缓存接口，有以下抽象方法
 1. 根据key设置缓存方法：不设置过期时间、设置过期时间
@@ -198,3 +202,5 @@ docker run -d -p 8081:8081 --name nexus -v /usr/local/nexus-data:/nexus-data --r
 4. 获取缓存方法：根据key获取字符串、根据key获取指定类型的缓存、根据key列表批量获取缓存
 5. 根据正则表达式获取所有key的方法
 6. 删除指定的key方法
+#### 分布式缓存基于Redis实现
+1. 创建一个RedisCache类，实现接口的方法。并且使用@ConditionalOnProperty注解，根据配置决定是否加载该类
