@@ -94,6 +94,8 @@ docker pull nacos/nacos-server:2.0.3
 
 搭建maven私服
 ```bash
+docker pull sonatype/nexus3
+mkdir /usr/local/nexus-data && chmod -R 200 /usr/local/nexus-data
 docker run -d -p 8081:8081 --name nexus -v /usr/local/nexus-data:/nexus-data --restart=always sonatype/nexus3
 ```
 
