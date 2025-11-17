@@ -226,3 +226,17 @@ docker run -d -p 8081:8081 --name nexus -v /usr/local/nexus-data:/nexus-data --r
 > 如果同一毫秒有多个线程生成ID，会通过竞争机制来获取序列号，保证唯一性
 
 雪花算法的组成：1bit符号位、41bit时间戳、10bit工作机器ID、12bit序列号
+
+# 即时通讯系统后端设计
+## 即时通讯通用代码设计
+> 即时通讯服务中主要食用Netty进行消息的收发。同时支持TCP和WebSocket来年各种功能长链接方式
+
+### 通用接口设计
+IMNettyServer接口声明三个抽象方法：isReady（服务是否准备就绪）、start（启动服务）、shutdown（停止服务）
+分别使用TCP和WebSocket两种方式实现IMNettyServer接口，**具体怎么使用Netty还得学习一下**
+
+另外，用户终端与即时通讯后端服务建立连接之后，后端服务会将用户ID和用户终端类型作为Key，用户终端与后端服务建立的连接对洗那个座位Value，将其存储到本地缓存中。具体逻辑在UserChannelContextCache类中实现，在类中设计了一个Map<Long,Map<Integer, ChannelHandlerContext>>
+类型的私有成员变量来存储数据。外层Map的Key是用户ID，内层Map的Key是用户终端类型，Value是ChannelHandlerContext对象。UserChannelContextCache提供存储用户连接的方法、移除用户连接的方法和获取用户连接的方法。
+
+### 同时启动SpringBoot已经加载的Netty服务实现类
+需要用到SpringBoot中的一个扩展点CommandLineRunner接口，CommandLineRunner接口的run方法会在SpringBoot启动时执行。可以使用run()方法启动Netty服务实现类。

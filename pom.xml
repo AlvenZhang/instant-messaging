@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.message</groupId>
-    <artifactId>instant-messaging</artifactId>
+    <artifactId>instant-messaging-server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>instant-messaging</name>

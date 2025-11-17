@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.message</groupId>
-        <artifactId>instant-messaging</artifactId>
+        <artifactId>instant-messaging-server</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>application</artifactId>
@@ -15,6 +15,19 @@
             <groupId>com.message</groupId>
             <artifactId>infrastructure</artifactId>
             <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        
+        <!-- Netty依赖 -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+        </dependency>
+        
+        <!-- Lombok依赖 -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 </project>
