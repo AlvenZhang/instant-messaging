@@ -237,6 +237,10 @@ IMNettyServer接口声明三个抽象方法：isReady（服务是否准备就绪
 
 另外，用户终端与即时通讯后端服务建立连接之后，后端服务会将用户ID和用户终端类型作为Key，用户终端与后端服务建立的连接对洗那个座位Value，将其存储到本地缓存中。具体逻辑在UserChannelContextCache类中实现，在类中设计了一个Map<Long,Map<Integer, ChannelHandlerContext>>
 类型的私有成员变量来存储数据。外层Map的Key是用户ID，内层Map的Key是用户终端类型，Value是ChannelHandlerContext对象。UserChannelContextCache提供存储用户连接的方法、移除用户连接的方法和获取用户连接的方法。
-
 ### 同时启动SpringBoot已经加载的Netty服务实现类
 需要用到SpringBoot中的一个扩展点CommandLineRunner接口，CommandLineRunner接口的run方法会在SpringBoot启动时执行。可以使用run()方法启动Netty服务实现类。
+
+## 自定义编解码器
+netty的编解码器分为一次编解码器（MessageToByteEncoder/ByteToMessageEncoder）、二次编解码器（MessageToMessageEncoder/MessageToMessageDecoder）。
+
+继承对应的编解码器父类，重写encoder/decoder方法即可完成自定义编解码器的编写。

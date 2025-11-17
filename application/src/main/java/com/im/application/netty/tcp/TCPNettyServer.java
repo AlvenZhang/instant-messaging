@@ -78,8 +78,14 @@ public class TCPNettyServer implements IMNettyServer {
                             // initialBytesToStrip: 跳过的字节数
                             pipeline.addLast(new LengthFieldBasedFrameDecoder(
                                     65536, 0, 4, 0, 4));
-                            
-                            // 添加长度字段编码器，在消息前添加4字节的长度字段
+
+                            // 添加入站解码器：将完整帧负载转换为 String（默认 UTF-8）
+                            pipeline.addLast(new com.im.application.netty.tcp.codec.TCPMessageDecoder());
+
+                            // 添加自定义出站编码器：将 String/byte[]/ByteBuf 等转为字节
+                            pipeline.addLast(new com.im.application.netty.tcp.codec.TCPMessageEncoder());
+
+                            // 添加长度字段编码器：在消息前添加4字节的长度字段，用于粘拆包
                             pipeline.addLast(new LengthFieldPrepender(4));
                             
                             // TODO: 添加自定义的业务处理器

@@ -87,7 +87,13 @@ public class WebSocketNettyServer implements IMNettyServer {
                             // WebSocket协议处理器，处理握手、心跳、关闭等
                             // 参数为WebSocket的路径
                             pipeline.addLast(new WebSocketServerProtocolHandler(websocketPath));
-                            
+
+                            // 添加入站解码器：将 WebSocketFrame 转为 String/byte[]
+                            pipeline.addLast(new com.im.application.netty.websocket.codec.WebSocketMessageDecoder());
+
+                            // 添加自定义出站编码器：将 String/byte[]/ByteBuf 转为 WebSocket 帧
+                            pipeline.addLast(new com.im.application.netty.websocket.codec.WebSocketMessageEncoder());
+
                             // TODO: 添加自定义的业务处理器
                             // pipeline.addLast(new WebSocketMessageHandler());
                         }
