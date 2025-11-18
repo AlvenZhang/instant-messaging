@@ -7,6 +7,6 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>domain</artifactId>
-    <name>Archetype - untitled</name>
+    <name>untitled</name>
     <url>http://maven.apache.org</url>
 </project>

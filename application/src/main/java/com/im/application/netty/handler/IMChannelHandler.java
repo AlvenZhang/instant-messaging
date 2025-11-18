@@ -1,6 +1,7 @@
 package com.im.application.netty.handler;
 import com.im.application.netty.cache.UserChannelContextCache;
 import com.im.common.cache.distribute.DistributedCache;
+import com.im.common.domain.constant.IMConstants;
 import com.im.infrastructure.holder.SpringContextHolder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -107,19 +108,17 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
         log.info("连接断开: channelId={}", ctx.channel().id().asShortText());
-        
         // 从通道属性中获取用户ID和终端类型
-        Long userId = ctx.channel().attr(USER_ID).get();
-        Integer terminalType = ctx.channel().attr(TERMINAL_TYPE).get();
-        
+        AttributeKey<Long> userIdAttr = AttributeKey.valueOf(IMConstants.USER_ID);
+        Long userId = ctx.channel().attr(userIdAttr).get();
+        AttributeKey<Integer> terminalAttr = AttributeKey.valueOf(IMConstants.TERMINAL_TYPE);
+        Integer terminalType= ctx.channel().attr(terminalAttr).get();
         if (userId == null || terminalType == null) {
             log.info("连接断开，但通道属性中未找到用户信息: channelId={}", ctx.channel().id().asShortText());
             return;
         }
-        
         log.info("用户连接断开: userId={}, terminalType={}, channelId={}", 
                 userId, terminalType, ctx.channel().id().asShortText());
-        
         // 从本地缓存中获取该用户的连接上下文
         ChannelHandlerContext cachedCtx = userChannelContextCache.get(userId, terminalType);
         
@@ -133,7 +132,7 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
             
             // TODO: 从分布式缓存中删除用户连接信息
             DistributedCache distributedCacheService = SpringContextHolder.getBean(IMConstants.DISTRIBUTED_CACHE_REDIS_SERVICE_KEY);
-            String redisKey = String.join(IMConstants.REDIS_KEY_SPLIT, IMConstants.IM_USER_SERVER_ID, userId.toString(), terminal.toString());
+            String redisKey = String.join(IMConstants.REDIS_KEY_SPLIT, IMConstants.IM_USER_SERVER_ID, userId.toString(), terminalType.toString());
             distributedCacheService.delete(redisKey);
             log.info("从分布式缓存中移除用户连接: userId={}, terminalType={}", userId, terminalType);
         } else {
