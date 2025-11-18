@@ -23,12 +23,12 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
     /**
      * 通道属性Key：用户ID
      */
-    public static final AttributeKey<Long> USER_ID = AttributeKey.valueOf("USER_ID");
+//    public static final AttributeKey<Long> USER_ID = AttributeKey.valueOf("USER_ID");
     
     /**
      * 通道属性Key：终端类型
      */
-    public static final AttributeKey<Integer> TERMINAL_TYPE = AttributeKey.valueOf("TERMINAL_TYPE");
+//    public static final AttributeKey<Integer> TERMINAL_TYPE = AttributeKey.valueOf("TERMINAL_TYPE");
     
     @Autowired
     private UserChannelContextCache userChannelContextCache;
@@ -46,12 +46,14 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
         log.info("接收到消息: channelId={}, message={}", ctx.channel().id().asShortText(), msg);
         
         // 从通道属性中获取用户ID和终端类型
-        Long userId = ctx.channel().attr(USER_ID).get();
-        Integer terminalType = ctx.channel().attr(TERMINAL_TYPE).get();
+        AttributeKey<Long> userIdAttr = AttributeKey.valueOf(IMConstants.USER_ID);
+        Long userId = ctx.channel().attr(userIdAttr).get();
+        AttributeKey<Integer> terminalAttr = AttributeKey.valueOf(IMConstants.TERMINAL_TYPE);
+        Integer terminalType = ctx.channel().attr(terminalAttr).get();
         
         if (userId != null && terminalType != null) {
             log.info("处理用户消息: userId={}, terminalType={}, message={}", userId, terminalType, msg);
-            // TODO: 在这里添加具体的业务逻辑处理
+            // TODO: 处理登录和心跳消息
             // 例如：消息路由、消息存储、消息转发等
         } else {
             log.warn("通道属性中未找到用户信息: channelId={}", ctx.channel().id().asShortText());
@@ -72,8 +74,10 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
                 ctx.channel().id().asShortText(), cause.getMessage(), cause);
         
         // 从通道属性中获取用户信息用于日志记录
-        Long userId = ctx.channel().attr(USER_ID).get();
-        Integer terminalType = ctx.channel().attr(TERMINAL_TYPE).get();
+        AttributeKey<Long> userIdAttr = AttributeKey.valueOf(IMConstants.USER_ID);
+        Long userId = ctx.channel().attr(userIdAttr).get();
+        AttributeKey<Integer> terminalAttr = AttributeKey.valueOf(IMConstants.TERMINAL_TYPE);
+        Integer terminalType = ctx.channel().attr(terminalAttr).get();
         
         if (userId != null && terminalType != null) {
             log.error("用户连接异常: userId={}, terminalType={}", userId, terminalType);
@@ -163,8 +167,10 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
                 log.warn("读超时，关闭连接: channelId={}", ctx.channel().id().asShortText());
                 
                 // 从通道属性中获取用户信息用于日志记录
-                Long userId = ctx.channel().attr(USER_ID).get();
-                Integer terminalType = ctx.channel().attr(TERMINAL_TYPE).get();
+                AttributeKey<Long> userIdAttr = AttributeKey.valueOf(IMConstants.USER_ID);
+                Long userId = ctx.channel().attr(userIdAttr).get();
+                AttributeKey<Integer> terminalAttr = AttributeKey.valueOf(IMConstants.TERMINAL_TYPE);
+                Integer terminalType = ctx.channel().attr(terminalAttr).get();
                 
                 if (userId != null && terminalType != null) {
                     log.warn("用户连接读超时: userId={}, terminalType={}", userId, terminalType);
