@@ -1,7 +1,10 @@
 package com.im.application.netty.handler;
 import com.im.application.netty.cache.UserChannelContextCache;
+import com.im.application.netty.processor.MessageProcessor;
+import com.im.application.netty.processor.ProcessorFactory;
 import com.im.common.cache.distribute.DistributedCache;
 import com.im.common.domain.constant.IMConstants;
+import com.im.common.domain.enums.SendMessageType;
 import com.im.infrastructure.holder.SpringContextHolder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -33,6 +36,9 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
     @Autowired
     private UserChannelContextCache userChannelContextCache;
     
+    @Autowired
+    private ProcessorFactory processorFactory;
+    
     /**
      * 处理入站事件和数据
      * 当接收到客户端发送的消息时，会调用此方法
@@ -45,18 +51,42 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
     protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
         log.info("接收到消息: channelId={}, message={}", ctx.channel().id().asShortText(), msg);
         
-        // 从通道属性中获取用户ID和终端类型
-        AttributeKey<Long> userIdAttr = AttributeKey.valueOf(IMConstants.USER_ID);
-        Long userId = ctx.channel().attr(userIdAttr).get();
-        AttributeKey<Integer> terminalAttr = AttributeKey.valueOf(IMConstants.TERMINAL_TYPE);
-        Integer terminalType = ctx.channel().attr(terminalAttr).get();
-        
-        if (userId != null && terminalType != null) {
-            log.info("处理用户消息: userId={}, terminalType={}, message={}", userId, terminalType, msg);
-            // TODO: 处理登录和心跳消息
-            // 例如：消息路由、消息存储、消息转发等
-        } else {
-            log.warn("通道属性中未找到用户信息: channelId={}", ctx.channel().id().asShortText());
+        try {
+            // 从通道属性中获取用户ID和终端类型
+            AttributeKey<Long> userIdAttr = AttributeKey.valueOf(IMConstants.USER_ID);
+            Long userId = ctx.channel().attr(userIdAttr).get();
+            AttributeKey<Integer> terminalAttr = AttributeKey.valueOf(IMConstants.TERMINAL_TYPE);
+            Integer terminalType = ctx.channel().attr(terminalAttr).get();
+            
+            // 提取消息类型
+            SendMessageType messageType = processorFactory.extractMessageType(msg);
+            log.debug("消息类型: {}", messageType);
+            
+            // 获取对应的消息处理器
+            MessageProcessor<?> processor = processorFactory.getProcessor(messageType);
+            
+            if (processor == null) {
+                log.warn("未找到消息处理器: messageType={}, channelId={}", messageType, ctx.channel().id().asShortText());
+                return;
+            }
+            
+            // 处理消息
+            if (userId != null && terminalType != null) {
+                log.info("处理已认证用户消息: userId={}, terminalType={}, messageType={}", userId, terminalType, messageType);
+                processor.process(ctx, msg);
+            } else {
+                // 未认证用户只能处理登录消息
+                if (messageType == SendMessageType.LOGIN) {
+                    log.info("处理登录消息: channelId={}", ctx.channel().id().asShortText());
+                    processor.process(ctx, msg);
+                } else {
+                    log.warn("未认证用户尝试发送非登录消息: messageType={}, channelId={}", messageType, ctx.channel().id().asShortText());
+                    ctx.close();
+                }
+            }
+        } catch (Exception e) {
+            log.error("处理消息异常: channelId={}, message={}", ctx.channel().id().asShortText(), msg, e);
+            ctx.close();
         }
     }
     

@@ -261,3 +261,14 @@ netty的编解码器分为一次编解码器（MessageToByteEncoder/ByteToMessag
 3. handlerAdded()方法是用户终端与即时通讯后端服务建立链接后Netty回调的方法，可以执行一些保存操作。但此时在这个方法里没有做任何操作
 4. handlerRemoved()方法是在用户终端与即时通讯后端服务断开链接后Netty回调的方法，可以执行一些移除操作。这里从通道属性中获取到用户ID和终端类型，通过用户ID和终端类型将其从本地缓存和分布式缓存中删除。另外通过判断缓存中存在该用户的通道上下文、缓存中的通道ID与当前断开链接的通道ID一致来防止异地登陆误删链接
 5. 在userEventTriggered()方法中检测超时时间，读超时事件中关闭对应的Channel链接
+## 即时通讯服务后端服务登陆处理器的设计与实现
+> 收到登陆消息后，对登陆逻辑进行处理。主要是对JWT Token进行校验，获取用户终端与即时通讯服务后端建立的链接、处理异地登陆逻辑、设置用户与终端属性、初始化心跳次数、缓存与用户建立的即时通讯后端服务ID
+### 具体实现
+1. MessageProcessor接口是消息处理器接口，任何对消息的处理都会实现该接口。提供了三个方法：process(ChannelHandlerContext ctx, T Data)方法处理消息、process(T data)、T transForm(Object obj)
+2. LoginProcessor类实现了MessageProcessor接口，主要处理登陆消息逻辑，实现process方法。校验token，校验不通过则关闭当前链接。校验通过则通过session获得用户ID和用户终端，处理异地登录逻辑。缓存用户终端与即时通讯后端服务建立的链接，设置用户和终端属性。初始化心跳次数，缓存与用户终端建立链接的即时通讯后端服务ID，并响应客户端登录的信息
+3. ProcessorFactory类在getProcessor()方法中，从IOC容器中获取到LoginProcessor类的对象并返回。预留获取心跳消息处理器、单聊消息处理器、群聊消息处理器的实现逻辑
+4. 修改IMChannelHandler类的channelRead0()方法，通过添加ProcessorFactory类获取消息处理器，并通过消息处理器处理逻辑
+## 心跳处理器的设计与实现
+> 发送心跳消息的流程与发送登录消息流程大体相似。即时通讯后端服务接收到消息后，调用消息处理器工厂的方法从IOC容器中获取对应的消息处理器，处理相应的消息
+1. 新增实现MessageProcessor接口的HeartBeatProcessor类，用于处理心跳消息。使用@Value注入心跳次数，process()方法中首先响应客户端的心跳消息。从用户终端与即时通讯后端服务建立的Channel链接中获取当前心跳次数，对心跳次数+1重新放入Channel链接中。对当前心跳次数求模，结果为0则延长与用户终端建立链接的即时通讯系统后端服务ID在分布式缓存中的有效时长
+2. 在ProcessFactory类中添加从IOC容器获取心跳消息处理器的方法
