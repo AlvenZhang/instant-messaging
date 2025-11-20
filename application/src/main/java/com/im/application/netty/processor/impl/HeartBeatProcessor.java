@@ -1,5 +1,6 @@
-package com.im.application.netty.processor;
+package com.im.application.netty.processor.impl;
 import com.im.application.netty.cache.UserChannelContextCache;
+import com.im.application.netty.processor.MessageProcessor;
 import com.im.common.cache.distribute.DistributedCache;
 import com.im.common.domain.constant.IMConstants;
 import com.im.infrastructure.holder.SpringContextHolder;
@@ -9,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
 
 /**
  * 心跳消息处理器
@@ -148,11 +151,11 @@ public class HeartBeatProcessor implements MessageProcessor<String> {
                     IMConstants.IM_USER_SERVER_ID, userId.toString(), terminalType.toString());
             
             // 获取当前的服务ID
-            String serverId = distributedCache.get(redisKey);
+            String serverId = distributedCache.get(redisKey, String.class);
             
             if (serverId != null) {
                 // 重新设置缓存，延长有效时长
-                distributedCache.set(redisKey, serverId, cacheExpireTime);
+                distributedCache.set(redisKey, serverId, Duration.ofSeconds(cacheExpireTime));
                 
                 log.info("刷新分布式缓存成功: userId={}, terminalType={}, serverId={}, expireTime={}", 
                         userId, terminalType, serverId, cacheExpireTime);

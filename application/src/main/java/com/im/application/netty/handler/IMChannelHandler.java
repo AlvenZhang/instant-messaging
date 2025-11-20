@@ -1,10 +1,11 @@
 package com.im.application.netty.handler;
 import com.im.application.netty.cache.UserChannelContextCache;
 import com.im.application.netty.processor.MessageProcessor;
-import com.im.application.netty.processor.ProcessorFactory;
+import com.im.application.netty.processor.factory.ProcessorFactory;
 import com.im.common.cache.distribute.DistributedCache;
 import com.im.common.domain.constant.IMConstants;
 import com.im.common.domain.enums.SendMessageType;
+import com.im.common.domain.model.CommonSendData;
 import com.im.infrastructure.holder.SpringContextHolder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
+public class IMChannelHandler extends SimpleChannelInboundHandler<CommonSendData> {
     
     /**
      * 通道属性Key：用户ID
@@ -48,7 +49,7 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
      * @throws Exception 处理过程中可能抛出的异常
      */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, CommonSendData msg) throws Exception {
         log.info("接收到消息: channelId={}, message={}", ctx.channel().id().asShortText(), msg);
         
         try {
@@ -58,29 +59,25 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<String> {
             AttributeKey<Integer> terminalAttr = AttributeKey.valueOf(IMConstants.TERMINAL_TYPE);
             Integer terminalType = ctx.channel().attr(terminalAttr).get();
             
-            // 提取消息类型
-            SendMessageType messageType = processorFactory.extractMessageType(msg);
-            log.debug("消息类型: {}", messageType);
-            
             // 获取对应的消息处理器
-            MessageProcessor<?> processor = processorFactory.getProcessor(messageType);
+            MessageProcessor processor = processorFactory.getProcessor(msg.getCommandType());
             
             if (processor == null) {
-                log.warn("未找到消息处理器: messageType={}, channelId={}", messageType, ctx.channel().id().asShortText());
+                log.warn("未找到消息处理器: messageType={}, channelId={}", msg.getCommandType(), ctx.channel().id().asShortText());
                 return;
             }
             
             // 处理消息
             if (userId != null && terminalType != null) {
-                log.info("处理已认证用户消息: userId={}, terminalType={}, messageType={}", userId, terminalType, messageType);
-                processor.process(ctx, msg);
+                log.info("处理已认证用户消息: userId={}, terminalType={}, messageType={}", userId, terminalType, msg.getCommandType());
+                processor.process(ctx, msg.getData());
             } else {
                 // 未认证用户只能处理登录消息
-                if (messageType == SendMessageType.LOGIN) {
+                if (msg.getCommandType() == SendMessageType.LOGIN) {
                     log.info("处理登录消息: channelId={}", ctx.channel().id().asShortText());
-                    processor.process(ctx, msg);
+                    processor.process(ctx, msg.getData());
                 } else {
-                    log.warn("未认证用户尝试发送非登录消息: messageType={}, channelId={}", messageType, ctx.channel().id().asShortText());
+                    log.warn("未认证用户尝试发送非登录消息: messageType={}, channelId={}", msg.getCommandType(), ctx.channel().id().asShortText());
                     ctx.close();
                 }
             }

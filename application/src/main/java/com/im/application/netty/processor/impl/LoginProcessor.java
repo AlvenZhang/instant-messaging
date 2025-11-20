@@ -1,8 +1,12 @@
-package com.im.application.netty.processor;
+package com.im.application.netty.processor.impl;
+import com.alibaba.fastjson.JSON;
 import com.im.application.netty.cache.UserChannelContextCache;
+import com.im.application.netty.processor.MessageProcessor;
 import com.im.common.cache.distribute.DistributedCache;
 import com.im.common.domain.constant.IMConstants;
+import com.im.common.domain.enums.TerminalType;
 import com.im.common.domain.model.LoginInfo;
+import com.im.common.domain.model.SessionInfo;
 import com.im.infrastructure.holder.SpringContextHolder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.AttributeKey;
@@ -11,10 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalUnit;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 登录消息处理器
@@ -67,9 +67,10 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
             }
             
             // 3. 从Token中获取用户ID和终端类型
-            Long userId = extractUserIdFromToken(token);
-            Integer terminalType = extractTerminalTypeFromToken(token);
-            
+            SessionInfo sessionInfo = JSON.parseObject(token, SessionInfo.class);
+            Long userId = sessionInfo.getUserId();
+            TerminalType terminalType = sessionInfo.getTerminal();
+
             if (userId == null || terminalType == null) {
                 log.error("无法从Token中获取用户信息: channelId={}", ctx.channel().id().asShortText());
                 sendLoginResponse(ctx, false, "无法从Token中获取用户信息");
@@ -80,19 +81,19 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
             log.info("用户登录: userId={}, terminalType={}, channelId={}", userId, terminalType, ctx.channel().id().asShortText());
             
             // 4. 处理异地登录逻辑
-            handleMultiTerminalLogin(userId, terminalType, ctx);
+            handleMultiTerminalLogin(userId, terminalType.getCode(), ctx);
             
             // 5. 缓存用户终端与即时通讯后端服务建立的链接
-            userChannelContextCache.put(userId, terminalType, ctx);
+            userChannelContextCache.put(userId, terminalType.getCode(), ctx);
             
             // 6. 设置用户和终端属性
-            setChannelAttributes(ctx, userId, terminalType);
+            setChannelAttributes(ctx, userId, terminalType.getCode());
             
             // 7. 初始化心跳次数
             initializeHeartbeat(ctx);
             
             // 8. 缓存与用户终端建立链接的即时通讯后端服务ID
-            cacheServerInfo(userId, terminalType);
+            cacheServerInfo(userId, terminalType.getCode());
             
             // 9. 响应客户端登录成功
             sendLoginResponse(ctx, true, "登录成功");
@@ -301,7 +302,7 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
             String serverId = getServerId();
             
             // 存储到分布式缓存，设置过期时间（例如24小时）
-            distributedCache.set(redisKey, serverId, Duration.ofMinutes(24 * 60 * 60));
+            distributedCache.set(redisKey, serverId, Duration.ofSeconds(24 * 60 * 60));
             
             log.info("缓存服务器信息成功: userId={}, terminalType={}, serverId={}", userId, terminalType, serverId);
         } catch (Exception e) {
