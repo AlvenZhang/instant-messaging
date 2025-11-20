@@ -1,5 +1,7 @@
 package com.im.application.netty.tcp.codec;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.im.common.domain.model.CommonSendData;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -15,7 +17,7 @@ import java.nio.charset.StandardCharsets;
  *
  * 使用方式：在 TCP 管线中添加该编码器，并置于 {@code LengthFieldPrepender} 之前。
  */
-public class TCPMessageEncoder extends MessageToByteEncoder<Object> {
+public class TCPMessageEncoder extends MessageToByteEncoder<CommonSendData> {
 
     private final Charset charset;
 
@@ -35,30 +37,8 @@ public class TCPMessageEncoder extends MessageToByteEncoder<Object> {
     }
 
     @Override
-    protected void encode(ChannelHandlerContext ctx, Object msg, ByteBuf out) throws Exception {
-        if (msg == null) {
-            return;
-        }
-
-        if (msg instanceof ByteBuf) {
-            // 直接写入已有的 ByteBuf 内容
-            out.writeBytes((ByteBuf) msg);
-            return;
-        }
-
-        if (msg instanceof byte[]) {
-            out.writeBytes((byte[]) msg);
-            return;
-        }
-
-        if (msg instanceof CharSequence) {
-            ByteBuf buf = Unpooled.copiedBuffer((CharSequence) msg, charset);
-            out.writeBytes(buf);
-            return;
-        }
-
-        // 其他对象统一转为字符串后按指定编码写出
-        ByteBuf buf = Unpooled.copiedBuffer(String.valueOf(msg), charset);
-        out.writeBytes(buf);
+    protected void encode(ChannelHandlerContext ctx, CommonSendData msg, ByteBuf out) throws Exception {
+        String content = new ObjectMapper().writeValueAsString(msg);
+        out.writeBytes(content.getBytes(charset));
     }
 }

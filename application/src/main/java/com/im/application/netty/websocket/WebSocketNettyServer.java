@@ -71,29 +71,21 @@ public class WebSocketNettyServer implements IMNettyServer {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
                             ChannelPipeline pipeline = ch.pipeline();
-                            
                             // 添加心跳检测处理器，超过idleTime秒没有读操作则触发IdleStateEvent
                             pipeline.addLast(new IdleStateHandler(idleTime, 0, 0, TimeUnit.SECONDS));
-                            
                             // HTTP请求的解码和编码
                             pipeline.addLast(new HttpServerCodec());
-                            
                             // 将HTTP消息的多个部分组合成一条完整的HTTP消息
                             pipeline.addLast(new HttpObjectAggregator(65536));
-                            
                             // 支持大文件传输
                             pipeline.addLast(new ChunkedWriteHandler());
-                            
                             // WebSocket协议处理器，处理握手、心跳、关闭等
                             // 参数为WebSocket的路径
                             pipeline.addLast(new WebSocketServerProtocolHandler(websocketPath));
-
                             // 添加入站解码器：将 WebSocketFrame 转为 String/byte[]
                             pipeline.addLast(new com.im.application.netty.websocket.codec.WebSocketMessageDecoder());
-
                             // 添加自定义出站编码器：将 String/byte[]/ByteBuf 转为 WebSocket 帧
                             pipeline.addLast(new com.im.application.netty.websocket.codec.WebSocketMessageEncoder());
-
                             // TODO: 添加自定义的业务处理器
                             // pipeline.addLast(new WebSocketMessageHandler());
                         }
