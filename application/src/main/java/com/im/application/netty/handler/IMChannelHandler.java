@@ -109,7 +109,6 @@ public class IMChannelHandler extends SimpleChannelInboundHandler<CommonSendData
         if (userId != null && terminalType != null) {
             log.error("用户连接异常: userId={}, terminalType={}", userId, terminalType);
         }
-        
         // 关闭连接
         ctx.close();
     }

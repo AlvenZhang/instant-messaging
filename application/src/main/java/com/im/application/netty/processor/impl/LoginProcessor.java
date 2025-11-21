@@ -5,6 +5,7 @@ import com.im.application.netty.processor.MessageProcessor;
 import com.im.common.cache.distribute.DistributedCache;
 import com.im.common.domain.constant.IMConstants;
 import com.im.common.domain.enums.TerminalType;
+import com.im.common.domain.jwt.JwtUtils;
 import com.im.common.domain.model.LoginInfo;
 import com.im.common.domain.model.SessionInfo;
 import com.im.infrastructure.holder.SpringContextHolder;
@@ -12,6 +13,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -36,6 +38,9 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
     
     @Autowired
     private UserChannelContextCache userChannelContextCache;
+
+    @Value("${jwt.accessToken.secret}")
+    private String accessTokenSecret;
     
     /**
      * 处理登录消息（带通道上下文）
@@ -48,7 +53,7 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
         log.info("处理登录消息: channelId={}, data={}", ctx.channel().id().asShortText(), data);
         
         try {
-            // 1. 验证登录信息
+            // 1. 验证登录信息不为空
             if (data == null || data.getToken() == null) {
                 log.error("登录信息为空: channelId={}", ctx.channel().id().asShortText());
                 sendLoginResponse(ctx, false, "登录信息为空");
@@ -59,15 +64,14 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
             String token = data.getToken();
             
             // 2. 校验Token
-            if (!validateToken(token)) {
-                log.warn("Token校验失败: channelId={}, token={}", ctx.channel().id().asShortText(), token);
-                sendLoginResponse(ctx, false, "Token校验失败");
-                ctx.close();
-                return;
+            if (!JwtUtils.checkSign(token, accessTokenSecret)){
+                ctx.channel().close();
+                log.warn("LoginProcessor.process|用户登录信息校验未通过,强制用户下线,token:{}", data.getToken());
             }
             
             // 3. 从Token中获取用户ID和终端类型
-            SessionInfo sessionInfo = JSON.parseObject(token, SessionInfo.class);
+            String info = JwtUtils.getInfo(token);
+            SessionInfo sessionInfo = JSON.parseObject(info, SessionInfo.class);
             Long userId = sessionInfo.getUserId();
             TerminalType terminalType = sessionInfo.getTerminal();
 
@@ -137,31 +141,7 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
         }
         return null;
     }
-    
-    /**
-     * 校验Token
-     * 
-     * @param token JWT Token
-     * @return 校验结果
-     */
-    private boolean validateToken(String token) {
-        try {
-            // TODO: 实现JWT Token校验逻辑
-            // 这里简单地检查token是否为空
-            if (token == null || token.isEmpty()) {
-                return false;
-            }
-            
-            // 实际项目中应使用JWT库进行校验
-            // 例如：JwtTokenProvider.validateToken(token)
-            log.debug("Token校验通过: token={}", token);
-            return true;
-        } catch (Exception e) {
-            log.error("Token校验异常: token={}", token, e);
-            return false;
-        }
-    }
-    
+
     /**
      * 从Token中提取用户ID
      * 
