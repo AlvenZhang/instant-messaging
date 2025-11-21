@@ -151,11 +151,12 @@ public class HeartBeatProcessor implements MessageProcessor<String> {
                     IMConstants.IM_USER_SERVER_ID, userId.toString(), terminalType.toString());
             
             // 获取当前的服务ID
-            String serverId = distributedCache.get(redisKey, String.class);
+            Long serverId = distributedCache.get(redisKey, Long.class);
             
             if (serverId != null) {
                 // 重新设置缓存，延长有效时长
-                distributedCache.set(redisKey, serverId, Duration.ofSeconds(cacheExpireTime));
+//                distributedCache.set(redisKey, serverId, Duration.ofSeconds(cacheExpireTime));
+                distributedCache.expire(redisKey, Duration.ofSeconds(cacheExpireTime));
                 
                 log.info("刷新分布式缓存成功: userId={}, terminalType={}, serverId={}, expireTime={}", 
                         userId, terminalType, serverId, cacheExpireTime);
