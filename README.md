@@ -272,3 +272,14 @@ netty的编解码器分为一次编解码器（MessageToByteEncoder/ByteToMessag
 > 发送心跳消息的流程与发送登录消息流程大体相似。即时通讯后端服务接收到消息后，调用消息处理器工厂的方法从IOC容器中获取对应的消息处理器，处理相应的消息
 1. 新增实现MessageProcessor接口的HeartBeatProcessor类，用于处理心跳消息。使用@Value注入心跳次数，process()方法中首先响应客户端的心跳消息。从用户终端与即时通讯后端服务建立的Channel链接中获取当前心跳次数，对心跳次数+1重新放入Channel链接中。对当前心跳次数求模，结果为0则延长与用户终端建立链接的即时通讯系统后端服务ID在分布式缓存中的有效时长
 2. 在ProcessFactory类中添加从IOC容器获取心跳消息处理器的方法
+
+im-messaging-server调用流程
+1. 使用TCP或WebSocket实现NettyServer，NettyServer中需要注册编码器、解码器、通道处理器
+2. Encoder编码，Decoder解码，ChannelHandler处理逻辑。Handler通过ProcessFactory获取具体的Processor
+3. ProcessFactory（获得不同类型的processor，例如LoginProcessor、PrivateMessageProcessor等， 都实现了接口MessageProcessor）
+4. MessageProcessor是各种Processor的接口，Processor中有两个方法供Handler调用，分别是process()和transform()。process()中实现Processor的具体逻辑，例如登陆验证、缓存交互等。transform()方法用于将原始数据转换为process的入参。
+
+数据存储
+- UserChannelContextCache中使用一个CurrentHashMap存储用户与数据通道的信息，结构是Map<Long,Map<Integer, ChannelHandlerContext>>，一个用户ID可以得到一个Map<Integer, ChannelHandlerContext>。一个用户ID和一个终端ID可以得到一个数据通道。
+- 登陆的时候会分布式缓存用户与建立链接的后端服务id，key是im:user:server_id:user_id:terminal_id，value是后端服务id
+- 心跳的时候随着10次心跳，更新一下分布式缓存中用户与建立链接的后端服务id的过期时间
