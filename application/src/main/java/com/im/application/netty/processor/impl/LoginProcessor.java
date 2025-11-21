@@ -41,6 +41,9 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
 
     @Value("${jwt.accessToken.secret}")
     private String accessTokenSecret;
+
+    @Value("${server.id}")
+    private Long serverId;
     
     /**
      * 处理登录消息（带通道上下文）
@@ -278,9 +281,7 @@ public class LoginProcessor implements MessageProcessor<LoginInfo> {
             String redisKey = String.join(IMConstants.REDIS_KEY_SPLIT, 
                     IMConstants.IM_USER_SERVER_ID, userId.toString(), terminalType.toString());
             
-            // 获取当前服务ID（这里需要从配置或其他地方获取）
-            String serverId = getServerId();
-            
+
             // 存储到分布式缓存，设置过期时间（例如24小时）
             distributedCache.set(redisKey, serverId, Duration.ofSeconds(24 * 60 * 60));
             
