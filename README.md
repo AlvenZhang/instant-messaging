@@ -283,3 +283,10 @@ im-messaging-server调用流程
 - UserChannelContextCache中使用一个CurrentHashMap存储用户与数据通道的信息，结构是Map<Long,Map<Integer, ChannelHandlerContext>>，一个用户ID可以得到一个Map<Integer, ChannelHandlerContext>。一个用户ID和一个终端ID可以得到一个数据通道。
 - 登陆的时候会分布式缓存用户与建立链接的后端服务id，key是im:user:server_id:user_id:terminal_id，value是后端服务id
 - 心跳的时候随着10次心跳，更新一下分布式缓存中用户与建立链接的后端服务id的过期时间
+
+## 单聊处理器的设计与实现
+> 用户A向用户B发送消息，先将存储消息。然后将消息发送给B，如果B不在线，则等待B上线后发送消息。
+1. 创建PrivateMessageProcessor类实现MessageProcessor接口。process()方法中获取到消息的发送者ID和接收者ID，如果能通过接收者的ID和终端类型获取到链接信息，则封装消息进行发送（向消息中间件发送发送成功状态）。否则向消息中间件发送未找到的消息
+2. 修改ProcessorFactory类
+3. 创建BaseConsumer类，是消费消息中间件消息数据的基础消费者类
+4. 创建PrivateMessageConsumer作为消息中间件中单聊的消费类。实现RocketMQPushConsumerLifecycleListener接口，实现preStart()方法，动态添加监听Topic，实现即时通讯后端服务集群中每个实例，都能动态监听与自身服务ID相关的Topic数据。
