@@ -226,3 +226,67 @@ docker run -d -p 8081:8081 --name nexus -v /usr/local/nexus-data:/nexus-data --r
 > 如果同一毫秒有多个线程生成ID，会通过竞争机制来获取序列号，保证唯一性
 
 雪花算法的组成：1bit符号位、41bit时间戳、10bit工作机器ID、12bit序列号
+
+# 即时通讯系统后端设计
+## 即时通讯通用代码设计
+> 即时通讯服务中主要食用Netty进行消息的收发。同时支持TCP和WebSocket来年各种功能长链接方式
+
+### 通用接口设计
+IMNettyServer接口声明三个抽象方法：isReady（服务是否准备就绪）、start（启动服务）、shutdown（停止服务）
+分别使用TCP和WebSocket两种方式实现IMNettyServer接口，**具体怎么使用Netty还得学习一下**
+
+另外，用户终端与即时通讯后端服务建立连接之后，后端服务会将用户ID和用户终端类型作为Key，用户终端与后端服务建立的连接对洗那个座位Value，将其存储到本地缓存中。具体逻辑在UserChannelContextCache类中实现，在类中设计了一个Map<Long,Map<Integer, ChannelHandlerContext>>
+类型的私有成员变量来存储数据。外层Map的Key是用户ID，内层Map的Key是用户终端类型，Value是ChannelHandlerContext对象。UserChannelContextCache提供存储用户连接的方法、移除用户连接的方法和获取用户连接的方法。
+### 同时启动SpringBoot已经加载的Netty服务实现类
+需要用到SpringBoot中的一个扩展点CommandLineRunner接口，CommandLineRunner接口的run方法会在SpringBoot启动时执行。可以使用run()方法启动Netty服务实现类。
+
+## 自定义编解码器
+netty的编解码器分为一次编解码器（MessageToByteEncoder/ByteToMessageEncoder）、二次编解码器（MessageToMessageEncoder/MessageToMessageDecoder）。
+
+继承对应的编解码器父类，重写encoder/decoder方法即可完成自定义编解码器的编写。
+## ChannelPipeline的设计与使用
+> ChannelPipeline是Netty中用于处理网络事件和数据的管道。它是一个双向链表结构，存储了ChannelHandler对象，每个ChannelHandler对象负责处理特定类型的网络事件和数据。
+> ChannelPipeline中的ChannelHandler对象按照添加顺序依次执行，每个ChannelHandler对象都可以处理ChannelPipeline中的数据，并且可以决定是否将数据传递给下一个ChannelHandler对象或者直接发送响应结果给客户端。
+### 事件传播机制
+> ChannelPipeline分为ChannelInboundHandler和ChannelOutboundHandler两个部分。ChannelInboundHandler负责处理入站事件和数据的处理（需要经过Decoder处理），ChannelOutboundHandler负责处理出站事件和数据发送（需要经过Encoder处理）。
+
+当客户端想服务端发送请求的时候，会触发ChannelInboundHandler的channelRead方法，处理完成之后会调用writeAndFlush()方法向客户端写数据，此时会触发ChannelOutboundHandler的write方法，将数据发送给客户端。
+在Netty中Inbound事件是由Head向Tail传播，Outbound事件是由Tail向Head传播。
+### 异常传播机制
+出现异常时Netty会调用exceptionCaught()方法，将异常从Head节点传播到Tail节点。如果没有对异常处理，异常会传播到Tail节点，由Tail节点处理异常。也可以在Netty中继承ChannelDuplexHandler类来自定义全局异常处理器来统一处理异常。
+### ChannelHandler具体实现
+继承SimpleChannelInboundHandler类，实现以下方法：
+1. channelRead0方法：处理入站事件和数据
+2. exceptionCaught方法：处理异常
+3. handlerAdded()方法是用户终端与即时通讯后端服务建立链接后Netty回调的方法，可以执行一些保存操作。但此时在这个方法里没有做任何操作
+4. handlerRemoved()方法是在用户终端与即时通讯后端服务断开链接后Netty回调的方法，可以执行一些移除操作。这里从通道属性中获取到用户ID和终端类型，通过用户ID和终端类型将其从本地缓存和分布式缓存中删除。另外通过判断缓存中存在该用户的通道上下文、缓存中的通道ID与当前断开链接的通道ID一致来防止异地登陆误删链接
+5. 在userEventTriggered()方法中检测超时时间，读超时事件中关闭对应的Channel链接
+## 即时通讯服务后端服务登陆处理器的设计与实现
+> 收到登陆消息后，对登陆逻辑进行处理。主要是对JWT Token进行校验，获取用户终端与即时通讯服务后端建立的链接、处理异地登陆逻辑、设置用户与终端属性、初始化心跳次数、缓存与用户建立的即时通讯后端服务ID
+### 具体实现
+1. MessageProcessor接口是消息处理器接口，任何对消息的处理都会实现该接口。提供了三个方法：process(ChannelHandlerContext ctx, T Data)方法处理消息、process(T data)、T transForm(Object obj)
+2. LoginProcessor类实现了MessageProcessor接口，主要处理登陆消息逻辑，实现process方法。校验token，校验不通过则关闭当前链接。校验通过则通过session获得用户ID和用户终端，处理异地登录逻辑。缓存用户终端与即时通讯后端服务建立的链接，设置用户和终端属性。初始化心跳次数，缓存与用户终端建立链接的即时通讯后端服务ID，并响应客户端登录的信息
+3. ProcessorFactory类在getProcessor()方法中，从IOC容器中获取到LoginProcessor类的对象并返回。预留获取心跳消息处理器、单聊消息处理器、群聊消息处理器的实现逻辑
+4. 修改IMChannelHandler类的channelRead0()方法，通过添加ProcessorFactory类获取消息处理器，并通过消息处理器处理逻辑
+## 心跳处理器的设计与实现
+> 发送心跳消息的流程与发送登录消息流程大体相似。即时通讯后端服务接收到消息后，调用消息处理器工厂的方法从IOC容器中获取对应的消息处理器，处理相应的消息
+1. 新增实现MessageProcessor接口的HeartBeatProcessor类，用于处理心跳消息。使用@Value注入心跳次数，process()方法中首先响应客户端的心跳消息。从用户终端与即时通讯后端服务建立的Channel链接中获取当前心跳次数，对心跳次数+1重新放入Channel链接中。对当前心跳次数求模，结果为0则延长与用户终端建立链接的即时通讯系统后端服务ID在分布式缓存中的有效时长
+2. 在ProcessFactory类中添加从IOC容器获取心跳消息处理器的方法
+
+im-messaging-server调用流程
+1. 使用TCP或WebSocket实现NettyServer，NettyServer中需要注册编码器、解码器、通道处理器
+2. Encoder编码，Decoder解码，ChannelHandler处理逻辑。Handler通过ProcessFactory获取具体的Processor
+3. ProcessFactory（获得不同类型的processor，例如LoginProcessor、PrivateMessageProcessor等， 都实现了接口MessageProcessor）
+4. MessageProcessor是各种Processor的接口，Processor中有两个方法供Handler调用，分别是process()和transform()。process()中实现Processor的具体逻辑，例如登陆验证、缓存交互等。transform()方法用于将原始数据转换为process的入参。
+
+数据存储
+- UserChannelContextCache中使用一个CurrentHashMap存储用户与数据通道的信息，结构是Map<Long,Map<Integer, ChannelHandlerContext>>，一个用户ID可以得到一个Map<Integer, ChannelHandlerContext>。一个用户ID和一个终端ID可以得到一个数据通道。
+- 登陆的时候会分布式缓存用户与建立链接的后端服务id，key是im:user:server_id:user_id:terminal_id，value是后端服务id
+- 心跳的时候随着10次心跳，更新一下分布式缓存中用户与建立链接的后端服务id的过期时间
+
+## 单聊处理器的设计与实现
+> 用户A向用户B发送消息，先将存储消息。然后将消息发送给B，如果B不在线，则等待B上线后发送消息。
+1. 创建PrivateMessageProcessor类实现MessageProcessor接口。process()方法中获取到消息的发送者ID和接收者ID，如果能通过接收者的ID和终端类型获取到链接信息，则封装消息进行发送（向消息中间件发送发送成功状态）。否则向消息中间件发送未找到的消息
+2. 修改ProcessorFactory类
+3. 创建BaseConsumer类，是消费消息中间件消息数据的基础消费者类
+4. 创建PrivateMessageConsumer作为消息中间件中单聊的消费类。实现RocketMQPushConsumerLifecycleListener接口，实现preStart()方法，动态添加监听Topic，实现即时通讯后端服务集群中每个实例，都能动态监听与自身服务ID相关的Topic数据。
