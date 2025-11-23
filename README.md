@@ -285,8 +285,15 @@ im-messaging-server调用流程
 - 心跳的时候随着10次心跳，更新一下分布式缓存中用户与建立链接的后端服务id的过期时间
 
 ## 单聊处理器的设计与实现
-> 用户A向用户B发送消息，先将存储消息。然后将消息发送给B，如果B不在线，则等待B上线后发送消息。
+> 用户A向用户B发送消息，先将存储消息。然后将消息发送给B，如果B不在线，则等待B上线后发送消息。B上线后会调用后端平台的接口拉取所有未读消息，并通过用户B在线流程向用户B推送消息
 1. 创建PrivateMessageProcessor类实现MessageProcessor接口。process()方法中获取到消息的发送者ID和接收者ID，如果能通过接收者的ID和终端类型获取到链接信息，则封装消息进行发送（向消息中间件发送发送成功状态）。否则向消息中间件发送未找到的消息
 2. 修改ProcessorFactory类
 3. 创建BaseConsumer类，是消费消息中间件消息数据的基础消费者类
 4. 创建PrivateMessageConsumer作为消息中间件中单聊的消费类。实现RocketMQPushConsumerLifecycleListener接口，实现preStart()方法，动态添加监听Topic，实现即时通讯后端服务集群中每个实例，都能动态监听与自身服务ID相关的Topic数据。
+
+## 群聊处理器的设计与实现
+> 群聊中发送消息的时候，通过群组ID找到群内所有在线的用户，将消息即时发给在线的用户。未在线的用户按照单聊未在线的用户进行处理。
+1. GroupMessageProcessor类实现MessageProcessor接口，用来处理用户发送的群聊消息。process()方法中获取消息发送着和接收者列表，遍历接收者列表，获取到消息接收者终端与后端服务建立的链接，链接存在则推送消息。链接不存在则向消息中间件发送未找到的消息。
+2. 修改ProcessorFactory类的getProcessor()方法中新增从IOC容器中获取群聊消息处理器的逻辑
+3. GroupMessageConsumer类extends BaseMessageConsumer implements RocketMQListener<String>, RocketMQPushConsumerLifecycleListener。实现onMessage方法，接收到消息之后将其解析为CommonReceiveData。从ProcessorFactory中获取群聊消息处理器，调用process方法处理消息
+GroupMessageConsumer同样实现了RocketMQPushConsumerLifecycleListener接口，实现preStart()方法，动态添加监听Topic，实现即时通讯后端服务集群中每个实例，都能动态监听与自身服务ID相关的Topic数据。

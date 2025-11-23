@@ -1,6 +1,7 @@
 package com.im.application.netty.processor.factory;
 import com.im.application.netty.processor.impl.HeartBeatProcessor;
 import com.im.application.netty.processor.impl.LoginProcessor;
+import com.im.application.netty.processor.impl.PrivateMessageProcessor;
 import com.im.application.netty.processor.MessageProcessor;
 import com.im.common.domain.enums.SendMessageType;
 import com.im.common.domain.model.CommonSendData;
@@ -28,10 +29,10 @@ public class ProcessorFactory {
     @Autowired
     private HeartBeatProcessor heartBeatProcessor;
     
+    @Autowired
+    private PrivateMessageProcessor privateMessageProcessor;
+    
     // TODO: 注入其他消息处理器
-    // @Autowired
-    // private PrivateChatProcessor privateChatProcessor;
-    //
     // @Autowired
     // private GroupChatProcessor groupChatProcessor;
     
@@ -60,9 +61,7 @@ public class ProcessorFactory {
             
             case PRIVATE_CHAT:
                 log.debug("返回单聊消息处理器");
-                // TODO: 实现单聊消息处理器
-                // return privateChatProcessor;
-                return null;
+                return privateMessageProcessor;
             
             case GROUP_CHAT:
                 log.debug("返回群聊消息处理器");
