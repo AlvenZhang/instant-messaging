@@ -1,0 +1,31 @@
+im-server功能是上图中红框圈出的部分，是向用户发送消息的即时通讯服务。会从MQ中获取消息，推送给对应的用户。
+
+拆分解析
+整个通讯过程基于Netty。该项目中Netty有两种实现方式：TCP、WebSocket。消息的来源是MQ，所以还会有MQ的Consumer
+
+Netty
+Netty分为三个主要部分：server、processor、handler。
+server
+server使用了两种实现方式：TCP、WebSocket。每种方式实现的同时需要创建对应的编/解码器。TCP实现方式的编码器是将对象转换为字节流，解码器是将字节流转换为对象。WebSocket实现方式的编码器是将对象转换为字符串，然后封装到TextWebSocketFrame。解码器是从TextWebSocketFrame得到字符串，然后转换为对象。
+processor
+1. LoginProcessor：检查是否有token，没有则下线；检查是否有相同设备登陆，有则强制下线；本地缓存用户设备与channel的关系；上下文中设置用户id、用户终端、初始化心跳次数；分布式缓存用户id、终端id与serverId的关系
+2. HeartbeatProcessor：上下文中get心跳次数，心跳次数达到预设的值则重置心跳次数，并在分布式缓存中重置缓存（userId、终端id、serverId）的时间
+3. PrivateMessageProcessor：输入消息中获得发送者与接收者的信息；本地上下文中通过接收者id与终端id获取上下文；使用上下文将消息发送给接收者的对应终端；将发送成功与失败结果发送到MQ
+4. GroupMessageProcessor：输入消息中获得发送者与接收者的信息；会有多个接收者，遍历多个接收者执行单聊发送消息的过程。这个地方提出一个问题，难道不会有性能的问题吗。没有更优雅的实现方式吗
+
+数据类型的转换是通过MessageProcessor的一个方法：
+default T transForm(Object obj){
+return (T) obj;
+}
+其中PrivateMessageProcessor和GroupMessageProcessor直接通过泛型将Object强制转换为IMReceiveInfo；LoginProcessor重写transForm，将Object转换为IMLoginInfo；HeartbeatProcessor重写transForm，将Object转换为IMHeartbeatInfo。
+上下文的概念：ChannelHandlerContext是Netty中的一个类，这个地方还需要了解一下
+handler
+IMChannelHandler继承了SimpleChannelInboundHandler。
+● channelRead0方法根据入参的code选择对应的process执行。透传上下文与发送的数据
+● handlerRemoved：handlerRemoved 是 ChannelHandler 生命周期方法之一。当某个 ChannelHandler 从 ChannelPipeline 中成功移除后，Netty 会调用这个方法。本项目中在这个方法中实现了缓存删除：删除本地上下文缓存中的userid、terminalId、channel的对应关系、分布式缓存中userId、terminalId与serverId的对应关系
+● userEventTriggered：待了解
+
+Consumer
+单聊与群聊分别实现两个Consumer。
+两个Consumer的实现逻辑类似，首先将String类型的输入数据转换为IMReceiveInfo。然后调用对应的processor去处理（发送）消息。
+两个Consumer实现RocketMQPushConsumerLifecycleListener接口，重写了prepareStart方法。通过prepareStart方法来动态监听RocketMQ的Topic。这个地方prepareStart方法还需要再去了解一下
