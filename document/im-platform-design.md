@@ -73,6 +73,11 @@ tip：IP限制时Redis的key是请求的IP，资源限制的key是请求的路�
 
 # 用户服务
 ## 用户注册与登陆授权
+> 调用流程：
+> 1. 前端发送注册/登陆请求，由LoginController接收
+> 2. LoginController调用UserService的register方法注册用户/登陆
+> 3. UserService使用UserDomainService中的方法以及分布式缓存中的数据完成注册/登陆操作
+
 用户数据仓库接口：UserRepository，继承MyBatisPlus的BaseMapper。依靠MyBatisPlus实现功能，没有定义具体的接口。
 用户领域层业务接口：UserDomainService，继承MyBatisPlus的IService
 - 方法：getUserByUserName，查询用户信息。
@@ -97,9 +102,18 @@ LoginController中，添加refreshToken方法。接收前端请求，调用UserS
 > 完成用户信息修改之后，需要同步到分布式缓存中。采用修改数据库之后，发布事件，服务订阅事件更新缓存的方式
 > 
 > 领域层修改完数据库之后，发布一个领域事件。应用层监听到事件之后异步处理分布式缓存中的数据
+> 
+> 调用流程：
+> 1. UserDomainServiceImpl的saveOrUpdateUser方法修改完数据库之后，发布一个领域事件。事件的实体类为IMUserEvent
+> 2. IMUserColaEventHandle、或IMUserRocketMQEventHandle监听到事件之后，调用UserCacheService的updateUserCache方法更新缓存
 
 UserDomainServiceImpl类中，修改saveOrUpdateUser方法。修改完数据之后发布一个领域事件
 用户事件模型：IMUserEvent类，有一个属性username
+用户缓存接口：UserCacheService，方法：updateUserCache
+用户缓存接口实现类：UserCacheServiceImpl
+- 方法：updateUserCache，接收userId，获取分布式锁，查询数据库，更新userId缓存/用户名缓存（都是缓存了User对象，只是key不同）
+Cola实现的事件处理类：IMUserColaEventHandle，实现EventHandlerI接口。监听到事件之后调用UserCacheService的updateUserCache方法更新缓存
+RocketMQ实现的事件处理类：IMUserRocketMQEventHandle，实现RocketMQListener接口。获取到的是String，要转换成IMUserEvent。监听到事件之后调用UserCacheService的updateUserCache方法更新缓存
 
 # 好友服务
 
