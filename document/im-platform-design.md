@@ -7,7 +7,9 @@
 领域对象模型：User、Friend（好友关系类）、Group（群组关系模型类）、GroupMember（群成员模型类）、PrivateMessage（单聊消息模型类）、GroupMessage（群聊消息模型类）、FileType（文件类型）、MessageType（消息类型）、MessageStatus（消息状态）、HttpStatus（HTTP状态码）
 
 ## 2、通用逻辑
-后端平台分为：用户微服务、好友关系微服务、群组微服务、消息微服务。各个微服务之间独立存在。
+> 后端平台分为：用户微服务、好友关系微服务、群组微服务、消息微服务。各个微服务之间独立存在。
+> 
+> 通用逻辑涉及Session机制、全局异常捕获、过滤器&拦截器链的实现
 
 各个微服务之间都需要用户的Session机制、全局异常捕获机制和通用数据响应机制。这些可以放在一个公共模块中。
 ### Session机制
@@ -70,8 +72,48 @@ tip：IP限制时Redis的key是请求的IP，资源限制的key是请求的路�
 - 方法：execute，校验当前请求的session中是否包含用户信息。（用户信息通过BaseRuleChainService的getUserSession方法获得）
 
 # 用户服务
+## 用户注册与登陆授权
+> 调用流程：
+> 1. 前端发送注册/登陆请求，由LoginController接收
+> 2. LoginController调用UserService的register方法注册用户/登陆
+> 3. UserService使用UserDomainService中的方法以及分布式缓存中的数据完成注册/登陆操作
 
+用户数据仓库接口：UserRepository，继承MyBatisPlus的BaseMapper。依靠MyBatisPlus实现功能，没有定义具体的接口。
+用户领域层业务接口：UserDomainService，继承MyBatisPlus的IService
+- 方法：getUserByUserName，查询用户信息。
+- 方法：saveOrUpdateUser，保存或更新用户信息
+用户领域层业务实现类：UserDomainServiceImpl，继承MyBatisPlus的ServiceImpl，实现UserDomainService接口，实现UserDomainService接口的两个方法
+用户应用层接口：UserService
+- 方法：register，注册用户
+- 方法：login，登陆用户
+用户应用层实现类：UserServiceImpl，实现UserService接口
+- 方法：register，检查分布式缓存中是否存在用户信息，如果存在表示用户已存在。不存在则创建用户信息，使用saveOrUpdateUser方法保存用户信息
+- 方法：login，从分布式缓存中获取用户信息，为空当前用户不存在。判断用户密码是否正确。将用户信息转换为Session信息，然后转换为token，并返回LoginVO
+登陆注册表现层类：LoginController
+- 方法：register，接收前端注册请求，调用UserService的register方法注册用户
+- 方法：login，接收前端登陆请求，调用UserService的login方法登陆用户
+MvcConfig配置类中配置BCrypt加密方法
+## JWT Token刷新机制
+UserService接口，新增refreshToken方法
+UserServiceImpl实现类，添加refreshToken方法。生成accessToken和refreshToken，封装到LoginVO中返回
+LoginController中，添加refreshToken方法。接收前端请求，调用UserService的refreshToken方法刷新token
 
+## 领域事件的发送与接收
+> 完成用户信息修改之后，需要同步到分布式缓存中。采用修改数据库之后，发布事件，服务订阅事件更新缓存的方式
+> 
+> 领域层修改完数据库之后，发布一个领域事件。应用层监听到事件之后异步处理分布式缓存中的数据
+> 
+> 调用流程：
+> 1. UserDomainServiceImpl的saveOrUpdateUser方法修改完数据库之后，发布一个领域事件。事件的实体类为IMUserEvent
+> 2. IMUserColaEventHandle、或IMUserRocketMQEventHandle监听到事件之后，调用UserCacheService的updateUserCache方法更新缓存
+
+UserDomainServiceImpl类中，修改saveOrUpdateUser方法。修改完数据之后发布一个领域事件
+用户事件模型：IMUserEvent类，有一个属性username
+用户缓存接口：UserCacheService，方法：updateUserCache
+用户缓存接口实现类：UserCacheServiceImpl
+- 方法：updateUserCache，接收userId，获取分布式锁，查询数据库，更新userId缓存/用户名缓存（都是缓存了User对象，只是key不同）
+Cola实现的事件处理类：IMUserColaEventHandle，实现EventHandlerI接口。监听到事件之后调用UserCacheService的updateUserCache方法更新缓存
+RocketMQ实现的事件处理类：IMUserRocketMQEventHandle，实现RocketMQListener接口。获取到的是String，要转换成IMUserEvent。监听到事件之后调用UserCacheService的updateUserCache方法更新缓存
 
 # 好友服务
 
