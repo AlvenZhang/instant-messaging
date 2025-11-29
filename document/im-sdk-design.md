@@ -5,7 +5,7 @@
 
 ## 发送群聊消息
 
-# 在线状态的大叔大大发
+# 在线状态的设计与实现
 修改IMSender接口：添加三个方法，getOnlineTerminal、isOnline、getOnlineTerminal
 修改DefaultIMSender类
 - 方法：isOnline，判断某个用户是否在线。构建分布式缓存key，从分布式缓存中查找数据，找得到说明存在返回true，否则返回false
@@ -21,4 +21,10 @@
   caster，实现MessageListenerMulticaster接口
 - 实现方法multicast：使用List接收注入的MessageListener。遍历List，如果对象使用IMListenerType标识，并且listenerType与入参的listenerType相同，则继续执行下面。检查数据是否为 JSONObject 类型。获取监听器实现的泛型接口类型（即 MessageListener<T> 中的 T）。将JSONObject自动转换为监听器期望的具体类型
 
-# 接收消息发送结果
+# 接收消息发送结果的设计与实现
+SDK发送消息之后，会调用广播方法回传消息发送结果
+基础消费类：BaseMessageResultConsumer，一个方法getResultMessage，将传入的String转换为JSONObject。然后将JSONObject转换为IMSendResult对象
+单聊消息消费类：PrivateMessageResultConsumer，继承BaseMessageResultConsumer，实现RocketMQListener接口
+- 接口的onMessage方法：调用父类方法getResultMessage，获取IMSendResult对象，调用MessageListenerMulticaster的multicast方法，将IMSendResult对象广播给监听器
+群聊消息消费类：GroupMessageResultConsumer，继承BaseMessageResultConsumer，实现RocketMQListener接口
+- 接口的onMessage方法：调用父类方法getResultMessage，获取IMSendResult对象，调用MessageListenerMulticaster的multicast方法，将IMSendResult对象广播给监听器
